@@ -22,14 +22,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Serve uploaded files statically
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Logger (dev only)
 if (process.env.NODE_ENV !== 'production') app.use(morgan('dev'));
 
 // Rate limiter for auth routes
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 min
-  max: 20,
-  message: { success: false, message: 'Too many requests, please try again later.' },
+  windowMs: 1 * 60 * 1000, // 1 minute window
+  max: process.env.NODE_ENV === 'production' ? 100 : 1000, // High limit for smooth testing
+  standardHeaders: true,
+  legacyHeaders: false,
+  skipSuccessfulRequests: true, // Do not count successful logins
+  message: { success: false, message: 'Too many requests, please try again in a minute.' },
 });
 
 // Routes

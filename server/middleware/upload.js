@@ -1,6 +1,23 @@
 const multer = require('multer');
-const { CloudinaryStorage } = require('multer-storage-cloudinary');
-const cloudinary = require('../config/cloudinary');
+const path = require('path');
+const fs = require('fs');
+
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Local disk storage (guarantees upload works without external Cloudinary credentials)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + ext);
+  },
+});
 
 const allowedMimeTypes = [
   'application/pdf',
@@ -12,29 +29,6 @@ const allowedMimeTypes = [
   'image/png',
   'image/jpg',
 ];
-
-const allowedFormats = ['pdf', 'doc', 'docx', 'ppt', 'pptx', 'jpg', 'png', 'jpeg'];
-
-const storage = new CloudinaryStorage({
-  cloudinary,
-  params: async (req, file) => {
-    let folder = 'excellup/materials';
-    let resource_type = 'auto';
-
-    if (file.mimetype.startsWith('image/')) {
-      folder = 'excellup/images';
-      resource_type = 'image';
-    }
-
-    return {
-      folder,
-      resource_type,
-      allowed_formats: allowedFormats,
-      use_filename: true,
-      unique_filename: true,
-    };
-  },
-});
 
 const fileFilter = (req, file, cb) => {
   if (allowedMimeTypes.includes(file.mimetype)) {
@@ -57,31 +51,16 @@ const upload = multer({
   },
 });
 
-// For avatar uploads — image only, stored in avatars folder
-const avatarStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: 'excellup/avatars',
-    resource_type: 'image',
-    allowed_formats: ['jpg', 'jpeg', 'png'],
-    transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
-    use_filename: true,
-    unique_filename: true,
-  },
-});
-
-const avatarFilter = (req, file, cb) => {
-  if (['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error('Avatar must be JPG or PNG'), false);
-  }
-};
-
 const uploadAvatar = multer({
-  storage: avatarStorage,
-  fileFilter: avatarFilter,
-  limits: { fileSize: 2 * 1024 * 1024 }, // 2 MB
+  storage,
+  fileFilter: (req, file, cb) => {
+    if (['image/jpeg', 'image/jpg', 'image/png'].includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Avatar must be JPG or PNG'), false);
+    }
+  },
+  limits: { fileSize: 2 * 1024 * 1024 },
 });
 
 module.exports = { upload, uploadAvatar };

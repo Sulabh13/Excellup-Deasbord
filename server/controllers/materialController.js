@@ -8,15 +8,18 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
 // @access  Private (admin, teacher)
 exports.uploadMaterial = async (req, res, next) => {
   try {
-    const { title, description, subject, batch, videoUrl, topic, chapter, tags } = req.body;
+    const { title, description, subject, subjectId, batch, batchId, videoUrl, topic, chapter, tags } = req.body;
 
     if (!title) return errorResponse(res, 'Title is required', 400);
+
+    const targetBatch = batch || batchId || null;
+    const targetSubject = subject || subjectId || null;
 
     const materialData = {
       title,
       description: description || null,
-      subject: subject || null,
-      batch: batch || null,
+      subject: targetSubject,
+      batch: targetBatch,
       uploadedBy: req.user._id,
       videoUrl: videoUrl || null,
       topic: topic || null,
@@ -25,7 +28,10 @@ exports.uploadMaterial = async (req, res, next) => {
     };
 
     if (req.file) {
-      materialData.fileUrl = req.file.path || req.file.secure_url;
+      const baseUrl = `${req.protocol}://${req.get('host')}`;
+      materialData.fileUrl = req.file.path.startsWith('http')
+        ? req.file.path
+        : `${baseUrl}/uploads/${req.file.filename}`;
       materialData.fileType = req.file.mimetype;
       materialData.fileName = req.file.originalname;
       materialData.fileSize = req.file.size;

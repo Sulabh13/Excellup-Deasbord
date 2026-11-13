@@ -25,9 +25,13 @@ export default function BatchesPage() {
 
   useEffect(() => { fetchBatches() }, [fetchBatches])
   useEffect(() => {
-    courseService.getAll().then(r => setCourses(r.data.data || []))
-    subjectService.getAll().then(r => setSubjects(r.data.data || []))
-    teacherService.getAll().then(r => setTeachers(r.data.data || []))
+    courseService.getAll().then(r => setCourses(r.data?.data || []))
+    subjectService.getAll().then(r => setSubjects(r.data?.data || []))
+    teacherService.getAll().then(r => {
+      const payload = r.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.teachers || [])
+      setTeachers(list)
+    })
   }, [])
 
   const openEdit = (b) => {
@@ -128,7 +132,11 @@ export default function BatchesPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Teacher</label>
               <select {...register('teacherId')} className="input-field">
                 <option value="">Select teacher</option>
-                {teachers.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                {teachers.map(t => {
+                  const tid = t.user?._id || t._id
+                  const tname = t.user?.name || t.name || 'Teacher'
+                  return <option key={tid} value={tid}>{tname}</option>
+                })}
               </select>
             </div>
             <div>

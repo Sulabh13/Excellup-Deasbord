@@ -14,7 +14,17 @@ export default function TeacherAttendancePage() {
   const [search, setSearch] = useState('')
   const [existingRecord, setExistingRecord] = useState(false)
 
-  useEffect(() => { batchService.getAll().then(r => setBatches(r.data.data || [])) }, [])
+  useEffect(() => {
+    batchService.getAll()
+      .then(r => {
+        const list = r.data?.data || []
+        setBatches(list)
+        if (list.length > 0 && !batchId) {
+          setBatchId(list[0]._id)
+        }
+      })
+      .catch(() => toast.error('Failed to load batches'))
+  }, [])
 
   const loadBatchData = useCallback(async () => {
     if (!batchId || !date) return
@@ -24,13 +34,32 @@ export default function TeacherAttendancePage() {
         batchService.getStudents(batchId),
         attendanceService.getByBatchDate(batchId, date),
       ])
-      const stuList = stuRes.data.data || []
+      const rawList = stuRes.data?.data || []
+      const stuList = rawList.map(item => {
+        if (item.student && typeof item.student === 'object') {
+          return {
+            _id: item.student._id,
+            name: item.student.name || 'Student',
+            studentId: item.student.studentId || '—',
+            email: item.student.email,
+          }
+        }
+        return {
+          _id: item._id,
+          name: item.name || 'Student',
+          studentId: item.studentId || '—',
+          email: item.email,
+        }
+      })
       setStudents(stuList)
-      const records = attRes.data.data?.records || []
+      const records = attRes.data.data?.records || (Array.isArray(attRes.data.data) ? attRes.data.data : [])
       if (records.length > 0) {
         setExistingRecord(true)
         const map = {}
-        records.forEach(r => { map[r.student._id] = r.status })
+        records.forEach(r => {
+          const sid = r.student?._id || r.student
+          if (sid) map[sid] = r.status
+        })
         setAttendance(map)
       } else {
         setExistingRecord(false)
@@ -64,9 +93,13 @@ export default function TeacherAttendancePage() {
     finally { setSaving(false) }
   }
 
-  const filtered = students.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
+  const filtered = students.filter(s => (s.name || '').toLowerCase().includes(search.toLowerCase()))
   const counts = { present: 0, absent: 0, late: 0 }
-  students.forEach(s => { const st = attendance[s._id] || 'absent'; counts[st]++ })
+  students.forEach(s => {
+    const st = attendance[s._id] || 'present'
+    if (counts[st] !== undefined) counts[st]++
+    else counts.absent++
+  })
 
   const statusBtn = (sid, status, label, icon, activeClass) => (
     <button
@@ -126,10 +159,12 @@ export default function TeacherAttendancePage() {
                 {filtered.map((s, idx) => (
                   <div key={s._id} className={`flex items-center gap-4 px-5 py-4 ${attendance[s._id] === 'present' ? 'bg-green-50/30' : attendance[s._id] === 'absent' ? 'bg-red-50/30' : 'bg-yellow-50/30'}`}>
                     <span className="text-sm text-gray-400 w-6 flex-shrink-0">{idx + 1}.</span>
-                    <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm flex-shrink-0">{s.name[0]}</div>
+                    <div className="w-9 h-9 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm flex-shrink-0">
+                      {(s.name || 'S')[0]?.toUpperCase()}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-gray-900 truncate">{s.name}</p>
-                      <p className="text-xs text-gray-400">{s.studentId}</p>
+                      <p className="font-medium text-gray-900 truncate">{s.name || 'Student'}</p>
+                      <p className="text-xs text-gray-400">{s.studentId || '—'}</p>
                     </div>
                     <div className="flex gap-2 flex-shrink-0">
                       {statusBtn(s._id, 'present', 'Present', <CheckCircle className="w-3.5 h-3.5" />, 'bg-green-600 text-white')}

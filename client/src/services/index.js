@@ -1,7 +1,19 @@
 import api from './api'
 
 export const authService = {
-  login: (data) => api.post('/auth/login', data),
+  login: (data) => {
+    const payload = {
+      password: data.password,
+    }
+    const val = (data.identifier || data.email || data.studentId || '').trim()
+    if (val.includes('@')) {
+      payload.email = val
+    } else {
+      payload.studentId = val
+    }
+    payload.identifier = val
+    return api.post('/auth/login', payload)
+  },
   logout: () => api.post('/auth/logout'),
   getMe: () => api.get('/auth/me'),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),

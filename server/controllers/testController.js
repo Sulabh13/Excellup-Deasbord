@@ -10,18 +10,21 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
 exports.createTest = async (req, res, next) => {
   try {
     const {
-      title, description, subject, batch, duration, totalMarks, passingPercentage,
+      title, description, subject, subjectId, batch, batchId, duration, totalMarks, passingPercentage,
       negativeMarking, negativeMarkValue, startTime, endTime, instructions,
       status, allowMultipleAttempts, shuffleQuestions, shuffleOptions,
     } = req.body;
 
-    if (!title || !batch || !duration) {
+    const targetBatch = batch || batchId;
+    const targetSubject = subject || subjectId || null;
+
+    if (!title || !targetBatch || !duration) {
       return errorResponse(res, 'Title, batch, and duration are required', 400);
     }
 
     const test = await MCQTest.create({
-      title, description: description || null, subject: subject || null, batch,
-      createdBy: req.user._id, duration,
+      title, description: description || null, subject: targetSubject, batch: targetBatch,
+      createdBy: req.user._id, duration: Number(duration),
       totalMarks: totalMarks || 0, passingPercentage: passingPercentage || 40,
       negativeMarking: negativeMarking || false, negativeMarkValue: negativeMarkValue || 0,
       startTime: startTime || null, endTime: endTime || null, instructions: instructions || null,
@@ -123,6 +126,8 @@ exports.updateTest = async (req, res, next) => {
     allowedFields.forEach((f) => {
       if (req.body[f] !== undefined) updates[f] = req.body[f];
     });
+    if (req.body.batchId && !updates.batch) updates.batch = req.body.batchId;
+    if (req.body.subjectId && !updates.subject) updates.subject = req.body.subjectId;
 
     const updated = await MCQTest.findByIdAndUpdate(req.params.id, updates, {
       new: true, runValidators: true,

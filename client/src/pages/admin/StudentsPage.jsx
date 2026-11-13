@@ -28,9 +28,19 @@ export default function StudentsPage() {
   const fetchStudents = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await studentService.getAll({ page, limit: 10, search, ...filters })
-      setStudents(res.data.data || [])
-      setTotal(res.data.total || 0)
+      const res = await studentService.getAll({
+        page,
+        limit: 10,
+        search,
+        ...filters,
+        course: filters.courseId,
+        batch: filters.batchId,
+      })
+      const payload = res.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.students || [])
+      const totalCount = res.data?.total || payload?.pagination?.total || list.length
+      setStudents(list)
+      setTotal(totalCount)
     } catch { toast.error('Failed to load students') }
     finally { setLoading(false) }
   }, [page, search, filters])
@@ -42,22 +52,34 @@ export default function StudentsPage() {
   }, [])
 
   const openAdd = () => { reset(); setModal({ type: 'add', data: null }) }
-  const openEdit = (s) => {
-    setModal({ type: 'edit', data: s })
-    setValue('name', s.name); setValue('email', s.email); setValue('phone', s.profile?.phone || '')
-    setValue('courseId', s.profile?.course?._id || ''); setValue('batchId', s.profile?.batch?._id || '')
-    setValue('guardianName', s.profile?.guardianName || ''); setValue('address', s.profile?.address || '')
+  const openEdit = (item) => {
+    const s = item.user || item
+    const profile = item.user ? item : (item.profile || {})
+    setModal({ type: 'edit', data: item })
+    setValue('name', s.name || '')
+    setValue('email', s.email || '')
+    setValue('phone', profile.phone || '')
+    setValue('courseId', profile.course?._id || profile.course || '')
+    setValue('batchId', profile.batch?._id || profile.batch || '')
+    setValue('guardianName', profile.guardianName || '')
+    setValue('address', profile.address || '')
   }
   const openView = (s) => setModal({ type: 'view', data: s })
   const closeModal = () => setModal({ type: null, data: null })
 
   const onSubmit = async (data) => {
     try {
+      const payload = {
+        ...data,
+        course: data.courseId || data.course,
+        batch: data.batchId || data.batch,
+      }
       if (modal.type === 'add') {
-        await studentService.create(data)
+        await studentService.create(payload)
         toast.success('Student created successfully!')
       } else {
-        await studentService.update(modal.data._id, data)
+        const targetId = modal.data.user?._id || modal.data._id
+        await studentService.update(targetId, payload)
         toast.success('Student updated!')
       }
       closeModal(); fetchStudents()
@@ -69,7 +91,7 @@ export default function StudentsPage() {
       await studentService.delete(confirmDelete)
       toast.success('Student deleted')
       setConfirmDelete(null); fetchStudents()
-    } catch { toast.error('Failed to delete') }
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed to delete') }
   }
 
   return (
@@ -128,32 +150,44 @@ export default function StudentsPage() {
                   <GraduationCap className="w-10 h-10 mx-auto mb-2 opacity-30" />
                   No students found
                 </td></tr>
-              ) : students.map(s => (
-                <tr key={s._id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="table-cell">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm flex-shrink-0">
-                        {s.name?.[0]?.toUpperCase()}
+              ) : students.map(item => {
+                const s = item.user || item
+                const profile = item.user ? item : (item.profile || {})
+                const sId = s._id || item._id
+                const name = s.name || 'Student'
+                const email = s.email || '—'
+                const studentId = s.studentId || profile.studentId || '—'
+                const batchName = profile.batch?.name || '—'
+                const courseName = profile.course?.name || '—'
+                const isActive = s.isActive !== undefined ? s.isActive : (profile.status === 'active')
+
+                return (
+                  <tr key={item._id} className="hover:bg-gray-50/50 transition-colors">
+                    <td className="table-cell">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 font-semibold text-sm flex-shrink-0">
+                          {name[0]?.toUpperCase() || 'S'}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">{name}</p>
+                          <p className="text-xs text-gray-400">{email}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-gray-900">{s.name}</p>
-                        <p className="text-xs text-gray-400">{s.email}</p>
+                    </td>
+                    <td className="table-cell hidden sm:table-cell font-mono text-xs text-gray-500">{studentId}</td>
+                    <td className="table-cell hidden md:table-cell text-gray-500">{batchName}</td>
+                    <td className="table-cell hidden lg:table-cell text-gray-500">{courseName}</td>
+                    <td className="table-cell">{statusBadge(isActive ? 'active' : 'inactive')}</td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => openView(item)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
+                        <button onClick={() => openEdit(item)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
+                        <button onClick={() => setConfirmDelete(sId)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
                       </div>
-                    </div>
-                  </td>
-                  <td className="table-cell hidden sm:table-cell font-mono text-xs text-gray-500">{s.studentId || '—'}</td>
-                  <td className="table-cell hidden md:table-cell text-gray-500">{s.profile?.batch?.name || '—'}</td>
-                  <td className="table-cell hidden lg:table-cell text-gray-500">{s.profile?.course?.name || '—'}</td>
-                  <td className="table-cell">{statusBadge(s.isActive ? 'active' : 'inactive')}</td>
-                  <td className="table-cell">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => openView(s)} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" title="View"><Eye className="w-4 h-4" /></button>
-                      <button onClick={() => openEdit(s)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors" title="Edit"><Pencil className="w-4 h-4" /></button>
-                      <button onClick={() => setConfirmDelete(s._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Delete"><Trash2 className="w-4 h-4" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -226,36 +260,52 @@ export default function StudentsPage() {
 
       {/* View Modal */}
       <Modal isOpen={modal.type === 'view'} onClose={closeModal} title="Student Profile">
-        {modal.data && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-2xl font-bold">
-                {modal.data.name?.[0]}
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900 text-lg">{modal.data.name}</h3>
-                <p className="text-gray-500 font-mono text-sm">{modal.data.studentId}</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {[
-                ['Email', modal.data.email],
-                ['Phone', modal.data.profile?.phone || '—'],
-                ['Course', modal.data.profile?.course?.name || '—'],
-                ['Batch', modal.data.profile?.batch?.name || '—'],
-                ['Guardian', modal.data.profile?.guardianName || '—'],
-                ['Status', modal.data.isActive ? 'Active' : 'Inactive'],
-                ['Enrolled', modal.data.profile?.enrollmentDate ? new Date(modal.data.profile.enrollmentDate).toLocaleDateString('en-IN') : '—'],
-                ['Address', modal.data.profile?.address || '—'],
-              ].map(([label, value]) => (
-                <div key={label} className="bg-gray-50 rounded-lg p-3">
-                  <p className="text-xs text-gray-400 font-medium">{label}</p>
-                  <p className="text-gray-900 mt-0.5">{value}</p>
+        {modal.data && (() => {
+          const item = modal.data
+          const s = item.user || item
+          const profile = item.user ? item : (item.profile || {})
+          const name = s.name || 'Student'
+          const studentId = s.studentId || profile.studentId || '—'
+          const email = s.email || '—'
+          const phone = profile.phone || '—'
+          const course = profile.course?.name || '—'
+          const batch = profile.batch?.name || '—'
+          const guardian = profile.guardianName || '—'
+          const isActive = s.isActive !== undefined ? s.isActive : (profile.status === 'active')
+          const enrolledDate = profile.enrollmentDate ? new Date(profile.enrollmentDate).toLocaleDateString('en-IN') : '—'
+          const address = profile.address || '—'
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-primary-700 text-2xl font-bold">
+                  {name[0]?.toUpperCase() || 'S'}
                 </div>
-              ))}
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">{name}</h3>
+                  <p className="text-gray-500 font-mono text-sm">{studentId}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  ['Email', email],
+                  ['Phone', phone],
+                  ['Course', course],
+                  ['Batch', batch],
+                  ['Guardian', guardian],
+                  ['Status', isActive ? 'Active' : 'Inactive'],
+                  ['Enrolled', enrolledDate],
+                  ['Address', address],
+                ].map(([label, value]) => (
+                  <div key={label} className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400 font-medium">{label}</p>
+                    <p className="text-gray-900 mt-0.5">{value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
 
       <ConfirmDialog isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete}

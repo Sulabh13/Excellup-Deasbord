@@ -14,14 +14,31 @@ export default function UploadNotesPage() {
   const [form, setForm] = useState({ title: '', description: '', batchId: '', subjectId: '', topic: '', chapter: '', tags: '', videoUrl: '', file: null })
 
   useEffect(() => {
-    batchService.getAll().then(r => setBatches(r.data.data || []))
-    subjectService.getAll().then(r => setSubjects(r.data.data || []))
+    batchService.getAll().then(r => {
+      const list = r.data?.data || []
+      setBatches(list)
+      if (list.length > 0) {
+        setForm(prev => ({ ...prev, batchId: prev.batchId || list[0]._id }))
+      }
+    })
+    subjectService.getAll().then(r => {
+      const list = r.data?.data || []
+      setSubjects(list)
+      if (list.length > 0) {
+        setForm(prev => ({ ...prev, subjectId: prev.subjectId || list[0]._id }))
+      }
+    })
     fetchMaterials()
   }, [])
 
   const fetchMaterials = useCallback(async () => {
     setLoading(true)
-    try { const r = await materialService.getAll({}); setMaterials(r.data.data || []) }
+    try {
+      const r = await materialService.getAll({})
+      const payload = r.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.materials || [])
+      setMaterials(list)
+    }
     catch { } finally { setLoading(false) }
   }, [])
 
@@ -34,6 +51,8 @@ export default function UploadNotesPage() {
     try {
       const fd = new FormData()
       Object.entries(form).forEach(([k, v]) => { if (v && k !== 'file') fd.append(k, v) })
+      if (form.batchId) fd.append('batch', form.batchId)
+      if (form.subjectId) fd.append('subject', form.subjectId)
       if (form.file) fd.append('file', form.file)
       await materialService.upload(fd)
       toast.success('Material uploaded successfully!')

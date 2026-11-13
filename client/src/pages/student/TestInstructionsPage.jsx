@@ -13,7 +13,10 @@ export default function TestInstructionsPage() {
 
   useEffect(() => {
     testService.getById(testId)
-      .then(r => setTest(r.data.data))
+      .then(r => {
+        const payload = r.data?.data
+        setTest(payload?.test || payload)
+      })
       .catch(() => { toast.error('Test not found'); navigate('/student/tests') })
       .finally(() => setLoading(false))
   }, [testId, navigate])

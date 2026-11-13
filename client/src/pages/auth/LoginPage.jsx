@@ -10,12 +10,25 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const { register, handleSubmit, formState: { errors } } = useForm()
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm({
+    defaultValues: {
+      identifier: '',
+      password: '',
+    },
+  })
+
+  const fillCredentials = (identifier, password) => {
+    setValue('identifier', identifier, { shouldValidate: true, shouldDirty: true })
+    setValue('password', password, { shouldValidate: true, shouldDirty: true })
+  }
 
   const onSubmit = async (data) => {
     setLoading(true)
     try {
-      const user = await login(data)
+      const user = await login({
+        identifier: (data.identifier || '').trim(),
+        password: (data.password || '').trim(),
+      })
       toast.success(`Welcome back, ${user.name}!`)
       const redirectMap = { admin: '/admin', teacher: '/teacher', student: '/student' }
       navigate(redirectMap[user.role] || '/login', { replace: true })
@@ -132,43 +145,31 @@ export default function LoginPage() {
           </form>
 
           <div className="mt-8 p-4 bg-purple-50 rounded-xl border border-purple-100">
-            <p className="text-xs font-semibold text-purple-700 mb-2">⚡ One-Click Demo Credentials</p>
+            <p className="text-xs font-semibold text-purple-700 mb-2">⚡ Quick Fill Demo Credentials</p>
             <div className="space-y-1.5 text-xs">
               <button
                 type="button"
-                onClick={() => {
-                  const elId = document.querySelector('input[type="text"]');
-                  const elPw = document.querySelector('input[name="password"]');
-                  if (elId) elId.value = 'admin@excellup.com';
-                  if (elPw) elPw.value = 'Admin@123';
-                }}
-                className="w-full text-left p-1.5 rounded hover:bg-purple-100/70 text-purple-900 font-mono transition-colors"
+                onClick={() => fillCredentials('admin@excellup.com', 'Admin@123')}
+                className="w-full text-left p-2 rounded-lg bg-white/70 hover:bg-white border border-purple-100 text-purple-900 transition-all flex items-center justify-between"
               >
-                🔑 <strong className="font-sans">Admin:</strong> admin@excellup.com / Admin@123
+                <span>🔑 <strong>Admin:</strong> admin@excellup.com</span>
+                <span className="text-[11px] px-2 py-0.5 bg-purple-100 rounded text-purple-700">Fill</span>
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const elId = document.querySelector('input[type="text"]');
-                  const elPw = document.querySelector('input[name="password"]');
-                  if (elId) elId.value = 'teacher@excellup.com';
-                  if (elPw) elPw.value = 'Teacher@123';
-                }}
-                className="w-full text-left p-1.5 rounded hover:bg-purple-100/70 text-purple-900 font-mono transition-colors"
+                onClick={() => fillCredentials('teacher@excellup.com', 'Teacher@123')}
+                className="w-full text-left p-2 rounded-lg bg-white/70 hover:bg-white border border-purple-100 text-purple-900 transition-all flex items-center justify-between"
               >
-                👩‍🏫 <strong className="font-sans">Teacher:</strong> teacher@excellup.com / Teacher@123
+                <span>👩‍🏫 <strong>Teacher:</strong> teacher@excellup.com</span>
+                <span className="text-[11px] px-2 py-0.5 bg-purple-100 rounded text-purple-700">Fill</span>
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const elId = document.querySelector('input[type="text"]');
-                  const elPw = document.querySelector('input[name="password"]');
-                  if (elId) elId.value = 'student@excellup.com';
-                  if (elPw) elPw.value = 'Student@123';
-                }}
-                className="w-full text-left p-1.5 rounded hover:bg-purple-100/70 text-purple-900 font-mono transition-colors"
+                onClick={() => fillCredentials('student@excellup.com', 'Student@123')}
+                className="w-full text-left p-2 rounded-lg bg-white/70 hover:bg-white border border-purple-100 text-purple-900 transition-all flex items-center justify-between"
               >
-                🎓 <strong className="font-sans">Student:</strong> student@excellup.com / Student@123
+                <span>🎓 <strong>Student:</strong> student@excellup.com</span>
+                <span className="text-[11px] px-2 py-0.5 bg-purple-100 rounded text-purple-700">Fill</span>
               </button>
             </div>
           </div>

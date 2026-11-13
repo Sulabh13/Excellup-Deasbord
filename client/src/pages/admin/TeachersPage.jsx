@@ -23,8 +23,11 @@ export default function TeachersPage() {
     setLoading(true)
     try {
       const res = await teacherService.getAll({ page, limit: 10, search })
-      setTeachers(res.data.data || [])
-      setTotal(res.data.total || 0)
+      const payload = res.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.teachers || [])
+      const totalCount = res.data?.total || payload?.pagination?.total || list.length
+      setTeachers(list)
+      setTotal(totalCount)
     } catch { toast.error('Failed to load teachers') }
     finally { setLoading(false) }
   }, [page, search])
@@ -34,23 +37,30 @@ export default function TeachersPage() {
 
   const openEdit = (t) => {
     setModal({ type: 'edit', data: t })
-    setValue('name', t.name); setValue('email', t.email)
-    setValue('phone', t.profile?.phone || ''); setValue('qualification', t.profile?.qualification || '')
-    setValue('experience', t.profile?.experience || '')
+    setValue('name', t.user?.name || t.name || ''); setValue('email', t.user?.email || t.email || '')
+    setValue('phone', t.phone || t.profile?.phone || ''); setValue('qualification', t.qualification || t.profile?.qualification || '')
+    setValue('experience', t.experience || t.profile?.experience || '')
   }
   const closeModal = () => { setModal({ type: null, data: null }); reset() }
 
   const onSubmit = async (data) => {
     try {
+      const targetId = modal.data?.user?._id || modal.data?._id
       if (modal.type === 'add') { await teacherService.create(data); toast.success('Teacher created!') }
-      else { await teacherService.update(modal.data._id, data); toast.success('Teacher updated!') }
+      else { await teacherService.update(targetId, data); toast.success('Teacher updated!') }
       closeModal(); fetchTeachers()
     } catch (err) { toast.error(err.response?.data?.message || 'Error saving teacher') }
   }
 
   const handleDelete = async () => {
-    try { await teacherService.delete(confirmDelete); toast.success('Teacher deleted'); setConfirmDelete(null); fetchTeachers() }
-    catch { toast.error('Failed to delete') }
+    try {
+      await teacherService.delete(confirmDelete)
+      toast.success('Teacher deleted')
+      setConfirmDelete(null)
+      fetchTeachers()
+    } catch {
+      toast.error('Failed to delete teacher')
+    }
   }
 
   return (
@@ -86,27 +96,44 @@ export default function TeachersPage() {
               {loading ? [...Array(4)].map((_, i) => <tr key={i}><td colSpan={6}><div className="h-8 skeleton m-4" /></td></tr>)
                 : teachers.length === 0
                   ? <tr><td colSpan={6} className="px-4 py-10 text-center text-gray-400"><Users className="w-10 h-10 mx-auto mb-2 opacity-30" />No teachers found</td></tr>
-                  : teachers.map(t => (
-                    <tr key={t._id} className="hover:bg-gray-50/50">
-                      <td className="table-cell">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm">{t.name[0]}</div>
-                          <div><p className="font-medium text-gray-900">{t.name}</p><p className="text-xs text-gray-400">{t.email}</p></div>
-                        </div>
-                      </td>
-                      <td className="table-cell hidden sm:table-cell text-gray-500">{t.profile?.phone || '—'}</td>
-                      <td className="table-cell hidden md:table-cell text-gray-500">{t.profile?.qualification || '—'}</td>
-                      <td className="table-cell hidden lg:table-cell text-gray-500">{t.profile?.experience || '—'}</td>
-                      <td className="table-cell">{t.isActive ? <span className="badge badge-green">Active</span> : <span className="badge badge-red">Inactive</span>}</td>
-                      <td className="table-cell">
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => setModal({ type: 'view', data: t })} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Eye className="w-4 h-4" /></button>
-                          <button onClick={() => openEdit(t)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"><Pencil className="w-4 h-4" /></button>
-                          <button onClick={() => setConfirmDelete(t._id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
+                  : teachers.map(t => {
+                    const name = t.user?.name || t.name || 'Teacher'
+                    const email = t.user?.email || t.email || '—'
+                    const phone = t.phone || t.profile?.phone || '—'
+                    const qual = t.qualification || t.profile?.qualification || '—'
+                    const exp = t.experience !== undefined ? t.experience : (t.profile?.experience || '—')
+                    const isActive = t.user ? t.user.isActive : (t.status === 'active')
+                    const teacherId = t.user?._id || t._id
+
+                    return (
+                      <tr key={t._id} className="hover:bg-gray-50/50">
+                        <td className="table-cell">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm">
+                              {name[0]?.toUpperCase() || 'T'}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{name}</p>
+                              <p className="text-xs text-gray-400">{email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="table-cell hidden sm:table-cell text-gray-500">{phone}</td>
+                        <td className="table-cell hidden md:table-cell text-gray-500">{qual}</td>
+                        <td className="table-cell hidden lg:table-cell text-gray-500">{typeof exp === 'number' ? `${exp} yrs` : exp}</td>
+                        <td className="table-cell">
+                          {isActive ? <span className="badge badge-green">Active</span> : <span className="badge badge-red">Inactive</span>}
+                        </td>
+                        <td className="table-cell">
+                          <div className="flex items-center gap-1">
+                            <button onClick={() => setModal({ type: 'view', data: t })} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Eye className="w-4 h-4" /></button>
+                            <button onClick={() => openEdit(t)} className="p-1.5 text-gray-400 hover:text-primary-600 hover:bg-primary-50 rounded-lg"><Pencil className="w-4 h-4" /></button>
+                            <button onClick={() => setConfirmDelete(teacherId)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
             </tbody>
           </table>
         </div>
@@ -152,19 +179,42 @@ export default function TeachersPage() {
       </Modal>
 
       <Modal isOpen={modal.type === 'view'} onClose={closeModal} title="Teacher Profile">
-        {modal.data && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold">{modal.data.name[0]}</div>
-              <div><h3 className="font-bold text-gray-900 text-lg">{modal.data.name}</h3><p className="text-gray-500 text-sm">{modal.data.email}</p></div>
+        {modal.data && (() => {
+          const t = modal.data
+          const name = t.user?.name || t.name || 'Teacher'
+          const email = t.user?.email || t.email || '—'
+          const phone = t.phone || t.profile?.phone || '—'
+          const qual = t.qualification || t.profile?.qualification || '—'
+          const exp = t.experience !== undefined ? t.experience : (t.profile?.experience || '—')
+          const isActive = t.user ? t.user.isActive : (t.status === 'active')
+
+          return (
+            <div className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-2xl font-bold">
+                  {name[0]?.toUpperCase() || 'T'}
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-lg">{name}</h3>
+                  <p className="text-gray-500 text-sm">{email}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                {[
+                  ['Phone', phone],
+                  ['Qualification', qual],
+                  ['Experience', typeof exp === 'number' ? `${exp} yrs` : exp],
+                  ['Status', isActive ? 'Active' : 'Inactive']
+                ].map(([k, v]) => (
+                  <div key={k} className="bg-gray-50 rounded-lg p-3">
+                    <p className="text-xs text-gray-400">{k}</p>
+                    <p className="text-gray-900">{v}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              {[['Phone', modal.data.profile?.phone || '—'], ['Qualification', modal.data.profile?.qualification || '—'], ['Experience', modal.data.profile?.experience || '—'], ['Status', modal.data.isActive ? 'Active' : 'Inactive']].map(([k, v]) => (
-                <div key={k} className="bg-gray-50 rounded-lg p-3"><p className="text-xs text-gray-400">{k}</p><p className="text-gray-900">{v}</p></div>
-              ))}
-            </div>
-          </div>
-        )}
+          )
+        })()}
       </Modal>
 
       <ConfirmDialog isOpen={!!confirmDelete} onClose={() => setConfirmDelete(null)} onConfirm={handleDelete} title="Delete Teacher" message="Delete this teacher? This cannot be undone." />

@@ -48,6 +48,8 @@ export default function QuestionsPage() {
   const closeModal = () => { setModal({ type: null, data: null }); reset(); setCorrectOption(0) }
 
   const buildPayload = (data) => ({
+    test: testId,
+    testId: testId,
     questionText: data.questionText,
     explanation: data.explanation,
     marks: Number(data.marks) || 1,

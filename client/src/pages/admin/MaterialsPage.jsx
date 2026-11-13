@@ -23,7 +23,9 @@ export default function MaterialsPage() {
     setLoading(true)
     try {
       const r = await materialService.getAll({ ...filters, search })
-      setMaterials(r.data.data || [])
+      const payload = r.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.materials || [])
+      setMaterials(list)
     } catch { toast.error('Failed to load materials') }
     finally { setLoading(false) }
   }, [filters, search])

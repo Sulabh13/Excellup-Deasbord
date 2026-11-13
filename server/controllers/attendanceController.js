@@ -67,19 +67,37 @@ exports.markAttendance = async (req, res, next) => {
 };
 
 // @desc    Get attendance for a batch on a specific date
-// @route   GET /api/attendance/batch/:batchId/date/:date
+// @route   GET /api/attendance/batch
 // @access  Private (admin, teacher)
 exports.getAttendanceByBatchDate = async (req, res, next) => {
   try {
-    const { batchId, date } = req.params;
+    const batchId = req.params.batchId || req.query.batchId;
+    const date = req.params.date || req.query.date || new Date().toISOString().slice(0, 10);
+
+    if (!batchId) {
+      return errorResponse(res, 'batchId is required', 400);
+    }
+
     const attendanceDate = new Date(date);
     attendanceDate.setUTCHours(0, 0, 0, 0);
+    const nextDay = new Date(attendanceDate);
+    nextDay.setUTCDate(nextDay.getUTCDate() + 1);
 
-    const records = await Attendance.find({ batch: batchId, date: attendanceDate })
+    const records = await Attendance.find({
+      batch: batchId,
+      date: { $gte: attendanceDate, $lt: nextDay },
+    })
       .populate('student', 'name email studentId avatar')
       .populate('markedBy', 'name role');
 
-    return successResponse(res, records);
+    const summary = {
+      total: records.length,
+      present: records.filter((r) => r.status === 'present').length,
+      absent: records.filter((r) => r.status === 'absent').length,
+      late: records.filter((r) => r.status === 'late').length,
+    };
+
+    return successResponse(res, { records, summary });
   } catch (err) {
     next(err);
   }
@@ -109,12 +127,16 @@ exports.updateAttendance = async (req, res, next) => {
 };
 
 // @desc    Get student attendance (calendar data) with optional month/year filter
-// @route   GET /api/attendance/student/:studentId
+// @route   GET /api/attendance/student
 // @access  Private (student sees own only)
 exports.getStudentAttendance = async (req, res, next) => {
   try {
-    const { studentId } = req.params;
+    const studentId = req.params.studentId || req.query.studentId || (req.user.role === 'student' ? req.user._id.toString() : null);
     const { month, year, batchId } = req.query;
+
+    if (!studentId) {
+      return errorResponse(res, 'studentId is required', 400);
+    }
 
     if (req.user.role === 'student' && req.user._id.toString() !== studentId) {
       return errorResponse(res, 'Not authorized to view this attendance', 403);

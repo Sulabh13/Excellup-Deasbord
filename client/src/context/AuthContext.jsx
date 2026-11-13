@@ -5,35 +5,33 @@ import toast from 'react-hot-toast'
 const AuthContext = createContext(null)
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('excellup_user')
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('excellup_token')
-    const storedUser = localStorage.getItem('excellup_user')
-    if (token && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch {
+    if (!token) return
+
+    authService.getMe()
+      .then(res => {
+        const u = res.data.data?.user || res.data.data
+        if (u) {
+          setUser(u)
+          localStorage.setItem('excellup_user', JSON.stringify(u))
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('excellup_token')
         localStorage.removeItem('excellup_user')
-      }
-    }
-    // Verify token is still valid
-    if (token) {
-      authService.getMe()
-        .then(res => {
-          setUser(res.data.data)
-          localStorage.setItem('excellup_user', JSON.stringify(res.data.data))
-        })
-        .catch(() => {
-          localStorage.removeItem('excellup_token')
-          localStorage.removeItem('excellup_user')
-          setUser(null)
-        })
-        .finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+        setUser(null)
+      })
   }, [])
 
   const login = useCallback(async (credentials) => {

@@ -24,8 +24,25 @@ export default function StudentBatchPage() {
           batchService.getById(batchId),
           batchService.getStudents(batchId),
         ])
-        setBatch(bRes.data?.data)
-        setStudents(sRes.data?.data || [])
+        const rawBatch = bRes.data?.data
+        setBatch(rawBatch?.batch || rawBatch)
+
+        const rawStudents = sRes.data?.data || []
+        const studentList = rawStudents.map(item => {
+          if (item.student && typeof item.student === 'object') {
+            return {
+              _id: item.student._id,
+              name: item.student.name || 'Student',
+              studentId: item.student.studentId || '—',
+            }
+          }
+          return {
+            _id: item._id,
+            name: item.name || 'Student',
+            studentId: item.studentId || '—',
+          }
+        })
+        setStudents(studentList)
       } catch (err) {
         console.error(err)
         toast.error('Failed to load batch')
@@ -72,8 +89,13 @@ export default function StudentBatchPage() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           {students.map(s => (
             <div key={s._id} className="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
-              <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold text-sm flex-shrink-0">{s.name[0]}</div>
-              <div className="min-w-0"><p className="font-medium text-gray-900 text-sm truncate">{s.name}</p><p className="text-xs text-gray-400">{s.studentId}</p></div>
+              <div className="w-9 h-9 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold text-sm flex-shrink-0">
+                {(s.name || 'S')[0]?.toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 text-sm truncate">{s.name || 'Student'}</p>
+                <p className="text-xs text-gray-400">{s.studentId || '—'}</p>
+              </div>
             </div>
           ))}
         </div>

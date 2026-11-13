@@ -117,21 +117,23 @@ exports.register = async (req, res, next) => {
 // @access  Public
 exports.login = async (req, res, next) => {
   try {
-    const { email, studentId, password } = req.body;
+    const { identifier, email, studentId, password } = req.body;
 
     if (!password) {
       return errorResponse(res, 'Password is required', 400);
     }
 
-    if (!email && !studentId) {
+    const loginId = (identifier || email || studentId || '').trim();
+
+    if (!loginId) {
       return errorResponse(res, 'Email or Student ID is required', 400);
     }
 
     let query = {};
-    if (email) {
-      query.email = email.toLowerCase();
+    if (loginId.includes('@')) {
+      query.email = loginId.toLowerCase();
     } else {
-      query.studentId = studentId;
+      query.studentId = loginId;
     }
 
     const user = await User.findOne(query).select('+password');

@@ -10,9 +10,16 @@ const { successResponse, errorResponse } = require('../utils/apiResponse');
 // @access  Private (admin)
 exports.createBatch = async (req, res, next) => {
   try {
-    const { name, batchCode, course, subject, teacher, schedule, startDate, endDate, maxStudents, description } = req.body;
+    const {
+      name, batchCode, course, courseId, subject, subjectId,
+      teacher, teacherId, schedule, startDate, endDate, maxStudents, description
+    } = req.body;
 
-    if (!name || !batchCode || !course) {
+    const targetCourse = course || courseId;
+    const targetSubject = subject || subjectId || null;
+    const targetTeacher = teacher || teacherId || null;
+
+    if (!name || !batchCode || !targetCourse) {
       return errorResponse(res, 'Name, batchCode and course are required', 400);
     }
 
@@ -22,9 +29,9 @@ exports.createBatch = async (req, res, next) => {
     const batch = await Batch.create({
       name,
       batchCode: batchCode.toUpperCase(),
-      course,
-      subject: subject || null,
-      teacher: teacher || null,
+      course: targetCourse,
+      subject: targetSubject,
+      teacher: targetTeacher,
       schedule: schedule || null,
       startDate: startDate || null,
       endDate: endDate || null,
@@ -108,13 +115,19 @@ exports.getBatchById = async (req, res, next) => {
 // @access  Private (admin)
 exports.updateBatch = async (req, res, next) => {
   try {
-    const { name, batchCode, course, subject, teacher, schedule, startDate, endDate, maxStudents, isActive, description } = req.body;
+    const {
+      name, batchCode, course, courseId, subject, subjectId,
+      teacher, teacherId, schedule, startDate, endDate, maxStudents, isActive, description
+    } = req.body;
     const updates = {};
     if (name !== undefined) updates.name = name;
     if (batchCode !== undefined) updates.batchCode = batchCode.toUpperCase();
     if (course !== undefined) updates.course = course;
+    else if (courseId !== undefined) updates.course = courseId;
     if (subject !== undefined) updates.subject = subject;
+    else if (subjectId !== undefined) updates.subject = subjectId;
     if (teacher !== undefined) updates.teacher = teacher;
+    else if (teacherId !== undefined) updates.teacher = teacherId;
     if (schedule !== undefined) updates.schedule = schedule;
     if (startDate !== undefined) updates.startDate = startDate;
     if (endDate !== undefined) updates.endDate = endDate;
@@ -189,7 +202,18 @@ exports.enrollStudentToBatch = async (req, res, next) => {
     const batch = await Batch.findById(req.params.id);
     if (!batch) return errorResponse(res, 'Batch not found', 404);
 
-    const student = await User.findById(studentId);
+    let student = null;
+    const idStr = String(studentId).trim();
+    if (mongoose.Types.ObjectId.isValid(idStr)) {
+      student = await User.findById(idStr);
+      if (!student || student.role !== 'student') {
+        const profile = await StudentProfile.findById(idStr);
+        if (profile) student = await User.findById(profile.user);
+      }
+    }
+    if (!student) {
+      student = await User.findOne({ studentId: idStr, role: 'student' });
+    }
     if (!student || student.role !== 'student') {
       return errorResponse(res, 'Student not found', 404);
     }
@@ -199,7 +223,8 @@ exports.enrollStudentToBatch = async (req, res, next) => {
       return errorResponse(res, 'Batch is full. Max students limit reached.', 400);
     }
 
-    const existing = await Enrollment.findOne({ student: studentId, batch: batch._id });
+    const actualStudentId = student._id;
+    const existing = await Enrollment.findOne({ student: actualStudentId, batch: batch._id });
     if (existing) {
       if (existing.status === 'active') {
         return errorResponse(res, 'Student is already enrolled in this batch', 400);
@@ -207,11 +232,11 @@ exports.enrollStudentToBatch = async (req, res, next) => {
       existing.status = 'active';
       await existing.save();
     } else {
-      await Enrollment.create({ student: studentId, batch: batch._id });
+      await Enrollment.create({ student: actualStudentId, batch: batch._id });
     }
 
     // Update student profile batch
-    await StudentProfile.findOneAndUpdate({ user: studentId }, { batch: batch._id });
+    await StudentProfile.findOneAndUpdate({ user: actualStudentId }, { batch: batch._id });
 
     return successResponse(res, null, 'Student enrolled successfully');
   } catch (err) {
@@ -224,8 +249,23 @@ exports.enrollStudentToBatch = async (req, res, next) => {
 // @access  Private (admin)
 exports.removeStudentFromBatch = async (req, res, next) => {
   try {
+    let studentId = req.params.studentId;
+    const idStr = String(studentId).trim();
+    let actualStudentId = idStr;
+
+    if (mongoose.Types.ObjectId.isValid(idStr)) {
+      const student = await User.findById(idStr);
+      if (!student || student.role !== 'student') {
+        const profile = await StudentProfile.findById(idStr);
+        if (profile) actualStudentId = profile.user;
+      }
+    } else {
+      const student = await User.findOne({ studentId: idStr, role: 'student' });
+      if (student) actualStudentId = student._id;
+    }
+
     const enrollment = await Enrollment.findOneAndUpdate(
-      { batch: req.params.id, student: req.params.studentId },
+      { batch: req.params.id, student: actualStudentId },
       { status: 'dropped' },
       { new: true }
     );

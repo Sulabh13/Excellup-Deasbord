@@ -18,11 +18,13 @@ export default function StudentAttendancePage() {
   const fetchAttendance = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await attendanceService.getStudentAttendance({ studentId: user._id, month, year })
-      setRecords(r.data.data?.records || [])
+      const r = await attendanceService.getStudentAttendance({ studentId: user?._id, month, year })
+      const payload = r.data?.data
+      const list = payload?.calendarData || payload?.records || (Array.isArray(payload) ? payload : [])
+      setRecords(list)
     } catch { toast.error('Failed to load attendance') }
     finally { setLoading(false) }
-  }, [user._id, month, year])
+  }, [user?._id, month, year])
 
   useEffect(() => { fetchAttendance() }, [fetchAttendance])
 

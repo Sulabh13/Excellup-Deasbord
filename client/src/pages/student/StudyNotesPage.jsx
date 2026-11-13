@@ -13,8 +13,13 @@ export default function StudyNotesPage() {
 
   const fetchMaterials = useCallback(async () => {
     setLoading(true)
-    try { const r = await materialService.getAll({ subjectId, search }); setMaterials(r.data.data || []) }
-    catch { toast.error('Failed') }
+    try {
+      const r = await materialService.getAll({ subjectId, search })
+      const payload = r.data?.data
+      const list = Array.isArray(payload) ? payload : (payload?.materials || [])
+      setMaterials(list)
+    }
+    catch { toast.error('Failed to load study materials') }
     finally { setLoading(false) }
   }, [subjectId, search])
 

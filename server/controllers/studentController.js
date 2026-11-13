@@ -1,18 +1,76 @@
+const mongoose = require('mongoose');
 const User = require('../models/User');
 const StudentProfile = require('../models/StudentProfile');
 const Enrollment = require('../models/Enrollment');
 const Attendance = require('../models/Attendance');
 const TestAttempt = require('../models/TestAttempt');
+const Course = require('../models/Course');
+const Batch = require('../models/Batch');
 const generateStudentId = require('../utils/generateStudentId');
 const { successResponse, errorResponse } = require('../utils/apiResponse');
+
+/**
+ * Robust helper to resolve student User and StudentProfile by:
+ * - User _id
+ * - StudentProfile _id
+ * - studentId string (e.g. EXC-2024-001)
+ */
+const resolveStudent = async (identifier) => {
+  if (!identifier) return { user: null, profile: null };
+
+  const idStr = String(identifier).trim();
+
+  // 1. If valid ObjectId, try finding User directly
+  if (mongoose.Types.ObjectId.isValid(idStr)) {
+    const user = await User.findById(idStr);
+    if (user && user.role === 'student') {
+      const profile = await StudentProfile.findOne({ user: user._id });
+      return { user, profile };
+    }
+  }
+
+  // 2. If valid ObjectId, try finding StudentProfile
+  if (mongoose.Types.ObjectId.isValid(idStr)) {
+    const profile = await StudentProfile.findById(idStr);
+    if (profile && profile.user) {
+      const user = await User.findById(profile.user);
+      if (user && user.role === 'student') {
+        return { user, profile };
+      }
+    }
+  }
+
+  // 3. Try finding User by studentId (e.g. EXC-2024-001)
+  const userByCode = await User.findOne({ studentId: idStr, role: 'student' });
+  if (userByCode) {
+    const profile = await StudentProfile.findOne({ user: userByCode._id });
+    return { user: userByCode, profile };
+  }
+
+  // 4. Try finding StudentProfile by studentId
+  const profileByCode = await StudentProfile.findOne({ studentId: idStr });
+  if (profileByCode && profileByCode.user) {
+    const user = await User.findById(profileByCode.user);
+    if (user && user.role === 'student') {
+      return { user, profile: profileByCode };
+    }
+  }
+
+  return { user: null, profile: null };
+};
 
 // @desc    Create a new student (admin only)
 // @route   POST /api/students
 // @access  Private (admin)
 exports.createStudent = async (req, res, next) => {
   try {
-    const { name, email, password, phone, address, guardianName, guardianPhone, course, batch } =
-      req.body;
+    const {
+      name, email, password, phone, address, guardianName, guardianPhone,
+      course, batch, courseId, batchId,
+    } = req.body;
+
+    const selectedCourse = course || courseId || null;
+    const selectedBatch = batch || batchId || null;
 
     if (!name || !email || !password) {
       return errorResponse(res, 'Name, email, and password are required', 400);
@@ -34,22 +92,26 @@ exports.createStudent = async (req, res, next) => {
     const profile = await StudentProfile.create({
       user: user._id,
       studentId,
-      course: course || null,
-      batch: batch || null,
+      course: selectedCourse,
+      batch: selectedBatch,
       phone: phone || null,
       address: address || null,
       guardianName: guardianName || null,
       guardianPhone: guardianPhone || null,
+      status: 'active',
     });
 
     // Auto-enroll in batch if provided
-    if (batch) {
-      await Enrollment.create({ student: user._id, batch }).catch(() => {});
+    if (selectedBatch) {
+      await Enrollment.create({ student: user._id, batch: selectedBatch }).catch(() => {});
     }
+
+    const safeUser = user.toObject();
+    delete safeUser.password;
 
     return successResponse(
       res,
-      { user: { _id: user._id, name, email: user.email, studentId }, profile },
+      { user: safeUser, profile },
       'Student created successfully',
       201
     );
@@ -66,26 +128,42 @@ exports.getAllStudents = async (req, res, next) => {
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 20;
     const skip = (page - 1) * limit;
-    const { search, batch, course, status } = req.query;
+    const { search, batch, course, status, batchId, courseId } = req.query;
+
+    const selectedBatch = batch || batchId;
+    const selectedCourse = course || courseId;
+
+    // Ensure any student users missing a profile have one created
+    const studentUsers = await User.find({ role: 'student' }).select('_id studentId');
+    for (const u of studentUsers) {
+      const exists = await StudentProfile.findOne({ user: u._id });
+      if (!exists) {
+        await StudentProfile.create({
+          user: u._id,
+          studentId: u.studentId || (await generateStudentId()),
+          status: 'active',
+        }).catch(() => {});
+      }
+    }
 
     // Build profile filter
     const profileFilter = {};
-    if (batch) profileFilter.batch = batch;
-    if (course) profileFilter.course = course;
+    if (selectedBatch) profileFilter.batch = selectedBatch;
+    if (selectedCourse) profileFilter.course = selectedCourse;
     if (status) profileFilter.status = status;
 
-    // If searching, also match user name/email/studentId
-    let userIds = null;
-    if (search) {
+    // If searching, match user name/email/studentId
+    if (search && search.trim()) {
+      const q = search.trim();
       const matchedUsers = await User.find({
         role: 'student',
         $or: [
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } },
-          { studentId: { $regex: search, $options: 'i' } },
+          { name: { $regex: q, $options: 'i' } },
+          { email: { $regex: q, $options: 'i' } },
+          { studentId: { $regex: q, $options: 'i' } },
         ],
       }).select('_id');
-      userIds = matchedUsers.map((u) => u._id);
+      const userIds = matchedUsers.map((u) => u._id);
       profileFilter.user = { $in: userIds };
     }
 
@@ -100,7 +178,7 @@ exports.getAllStudents = async (req, res, next) => {
 
     return successResponse(res, {
       students: profiles,
-      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 },
     });
   } catch (err) {
     next(err);
@@ -112,8 +190,8 @@ exports.getAllStudents = async (req, res, next) => {
 // @access  Private (admin, teacher, own student)
 exports.getStudentById = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
-    if (!user || user.role !== 'student') {
+    const { user, profile } = await resolveStudent(req.params.id);
+    if (!user) {
       return errorResponse(res, 'Student not found', 404);
     }
 
@@ -122,7 +200,7 @@ exports.getStudentById = async (req, res, next) => {
       return errorResponse(res, 'Not authorized to view this profile', 403);
     }
 
-    const profile = await StudentProfile.findOne({ user: user._id })
+    const populatedProfile = await StudentProfile.findOne({ user: user._id })
       .populate('course', 'name code fees duration')
       .populate('batch', 'name batchCode schedule startDate endDate')
       .populate({ path: 'batch', populate: { path: 'teacher', select: 'name email' } });
@@ -131,7 +209,14 @@ exports.getStudentById = async (req, res, next) => {
       .populate('batch', 'name batchCode schedule course')
       .sort({ enrollmentDate: -1 });
 
-    return successResponse(res, { user, profile, enrollments });
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    return successResponse(res, {
+      user: safeUser,
+      profile: populatedProfile || profile,
+      enrollments,
+    });
   } catch (err) {
     next(err);
   }
@@ -142,11 +227,16 @@ exports.getStudentById = async (req, res, next) => {
 // @access  Private (admin)
 exports.updateStudent = async (req, res, next) => {
   try {
-    const { name, email, phone, address, guardianName, guardianPhone, course, batch, status } =
-      req.body;
+    const {
+      name, email, phone, address, guardianName, guardianPhone,
+      course, batch, courseId, batchId, status,
+    } = req.body;
 
-    const user = await User.findById(req.params.id);
-    if (!user || user.role !== 'student') {
+    const selectedCourse = course || courseId;
+    const selectedBatch = batch || batchId;
+
+    const { user } = await resolveStudent(req.params.id);
+    if (!user) {
       return errorResponse(res, 'Student not found', 404);
     }
 
@@ -154,15 +244,35 @@ exports.updateStudent = async (req, res, next) => {
     if (email) user.email = email.toLowerCase();
     await user.save();
 
+    const updateFields = {};
+    if (phone !== undefined) updateFields.phone = phone;
+    if (address !== undefined) updateFields.address = address;
+    if (guardianName !== undefined) updateFields.guardianName = guardianName;
+    if (guardianPhone !== undefined) updateFields.guardianPhone = guardianPhone;
+    if (selectedCourse !== undefined) updateFields.course = selectedCourse || null;
+    if (selectedBatch !== undefined) updateFields.batch = selectedBatch || null;
+    if (status !== undefined) updateFields.status = status;
+
     const profile = await StudentProfile.findOneAndUpdate(
       { user: user._id },
-      { phone, address, guardianName, guardianPhone, course, batch, status },
-      { new: true, runValidators: true }
+      { $set: updateFields },
+      { new: true, upsert: true, runValidators: true }
     )
       .populate('course', 'name code')
       .populate('batch', 'name batchCode');
 
-    return successResponse(res, { user, profile }, 'Student updated successfully');
+    // Auto-enroll if new batch provided
+    if (selectedBatch) {
+      const enrolled = await Enrollment.findOne({ student: user._id, batch: selectedBatch });
+      if (!enrolled) {
+        await Enrollment.create({ student: user._id, batch: selectedBatch }).catch(() => {});
+      }
+    }
+
+    const safeUser = user.toObject();
+    delete safeUser.password;
+
+    return successResponse(res, { user: safeUser, profile }, 'Student updated successfully');
   } catch (err) {
     next(err);
   }
@@ -173,13 +283,15 @@ exports.updateStudent = async (req, res, next) => {
 // @access  Private (admin)
 exports.deleteStudent = async (req, res, next) => {
   try {
-    const user = await User.findById(req.params.id);
-    if (!user || user.role !== 'student') {
+    const { user } = await resolveStudent(req.params.id);
+    if (!user) {
       return errorResponse(res, 'Student not found', 404);
     }
     user.isActive = false;
     await user.save();
+
     await StudentProfile.findOneAndUpdate({ user: user._id }, { status: 'inactive' });
+
     return successResponse(res, null, 'Student deactivated successfully');
   } catch (err) {
     next(err);
@@ -191,13 +303,16 @@ exports.deleteStudent = async (req, res, next) => {
 // @access  Private
 exports.getStudentAttendanceSummary = async (req, res, next) => {
   try {
-    const studentId = req.params.id;
+    const { user } = await resolveStudent(req.params.id);
+    if (!user) {
+      return errorResponse(res, 'Student not found', 404);
+    }
 
-    if (req.user.role === 'student' && req.user._id.toString() !== studentId) {
+    if (req.user.role === 'student' && req.user._id.toString() !== user._id.toString()) {
       return errorResponse(res, 'Not authorized', 403);
     }
 
-    const records = await Attendance.find({ student: studentId });
+    const records = await Attendance.find({ student: user._id });
     const total = records.length;
     const present = records.filter((r) => r.status === 'present').length;
     const absent = records.filter((r) => r.status === 'absent').length;
@@ -215,13 +330,16 @@ exports.getStudentAttendanceSummary = async (req, res, next) => {
 // @access  Private
 exports.getStudentTestHistory = async (req, res, next) => {
   try {
-    const studentId = req.params.id;
+    const { user } = await resolveStudent(req.params.id);
+    if (!user) {
+      return errorResponse(res, 'Student not found', 404);
+    }
 
-    if (req.user.role === 'student' && req.user._id.toString() !== studentId) {
+    if (req.user.role === 'student' && req.user._id.toString() !== user._id.toString()) {
       return errorResponse(res, 'Not authorized', 403);
     }
 
-    const attempts = await TestAttempt.find({ student: studentId })
+    const attempts = await TestAttempt.find({ student: user._id })
       .populate('test', 'title subject batch duration totalMarks passingPercentage status isResultPublished')
       .sort({ createdAt: -1 });
 

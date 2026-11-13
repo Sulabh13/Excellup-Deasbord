@@ -13,11 +13,12 @@ const sanitizeForStudent = (question) => {
 };
 
 // @desc    Add a question to a test
-// @route   POST /api/questions
+// @route   POST /api/questions/test/:testId
 // @access  Private (admin, teacher)
 exports.addQuestion = async (req, res, next) => {
   try {
-    const { test, questionText, questionImage, options, explanation, marks, negativeMarks, order } = req.body;
+    const test = req.params.testId || req.body.testId || req.body.test;
+    const { questionText, questionImage, options, explanation, marks, negativeMarks, order } = req.body;
 
     if (!test || !questionText || !options || options.length < 2) {
       return errorResponse(res, 'test, questionText, and at least 2 options are required', 400);

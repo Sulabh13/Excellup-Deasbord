@@ -1,4 +1,9 @@
+const path = require('path');
 const dotenv = require('dotenv');
+
+// Load environment variables reliably regardless of working directory
+dotenv.config({ path: path.join(__dirname, '.env') });
+dotenv.config({ path: path.join(__dirname, '../.env') });
 dotenv.config();
 
 const connectDB = require('./config/db');
@@ -19,4 +24,3 @@ startServer().catch(err => {
   console.error('Failed to start server:', err);
   process.exit(1);
 });
-

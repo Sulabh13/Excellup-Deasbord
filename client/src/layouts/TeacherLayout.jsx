@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, Layers, Users, ClipboardList, Upload,
   FileText, PlusCircle, TestTube2, BarChart2, Megaphone,
-  User, LogOut, Menu, X, Bell, ChevronDown, GraduationCap,
+  User, LogOut, Menu, X, Bell, ChevronDown, GraduationCap, Video
 } from 'lucide-react'
 
 const navItems = [
@@ -12,6 +12,8 @@ const navItems = [
   { label: 'My Batches', path: '/teacher/batches', icon: Layers },
   { label: 'Student List', path: '/teacher/students', icon: Users },
   { label: 'Attendance', path: '/teacher/attendance', icon: ClipboardList },
+  { label: 'Online Courses (LMS)', path: '/teacher/lms/courses', icon: Video },
+  { label: 'Assignments & Grading', path: '/teacher/lms/assignments', icon: FileText },
   { label: 'Upload Notes', path: '/teacher/notes/upload', icon: Upload },
   { label: 'Study Materials', path: '/teacher/materials', icon: FileText },
   { label: 'Create Test', path: '/teacher/tests/create', icon: PlusCircle },
@@ -25,7 +27,6 @@ export default function TeacherLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleLogout = async () => { await logout(); navigate('/login') }
 
@@ -51,16 +52,14 @@ export default function TeacherLayout() {
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
           {navItems.map(item => (
             <NavLink key={item.path} to={item.path} end={item.end} onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+              className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? 'bg-blue-50 text-blue-700 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
               <item.icon className="w-4 h-4 flex-shrink-0" />{item.label}
             </NavLink>
           ))}
         </nav>
         <div className="p-3 border-t border-gray-100">
           <div className="flex items-center gap-3 px-2 py-2 rounded-lg bg-gray-50">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">
-              {user?.name?.[0]?.toUpperCase() || 'T'}
-            </div>
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-sm flex-shrink-0">{user?.name?.[0]?.toUpperCase() || 'T'}</div>
             <div className="min-w-0">
               <p className="text-xs font-semibold text-gray-900 truncate">{user?.name}</p>
               <p className="text-xs text-gray-400 truncate">{user?.email}</p>
@@ -70,28 +69,24 @@ export default function TeacherLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-4 shadow-sm">
-          <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(true)}><Menu className="w-5 h-5 text-gray-600" /></button>
-          <div className="flex-1" />
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500"><Bell className="w-5 h-5" /></button>
-          <div className="relative">
-            <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-semibold text-xs">{user?.name?.[0]?.toUpperCase() || 'T'}</div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:block">{user?.name}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 z-10 flex-shrink-0">
+          <button className="lg:hidden p-2 text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="hidden sm:block">
+            <p className="text-sm font-semibold text-gray-800">Teacher Portal • Excellup Coding Classes</p>
+          </div>
+          <div className="flex items-center gap-3 ml-auto">
+            <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+              <LogOut className="w-4 h-4" /> Logout
             </button>
-            {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                <button onClick={() => { setDropdownOpen(false); navigate('/teacher/profile') }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">Profile</button>
-                <hr className="my-1 border-gray-100" />
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><LogOut className="w-4 h-4" />Logout</button>
-              </div>
-            )}
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6"><Outlet /></main>
+
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <Outlet />
+        </main>
       </div>
     </div>
   )
 }
-

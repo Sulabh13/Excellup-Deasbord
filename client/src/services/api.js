@@ -1,6 +1,16 @@
 import axios from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+// Sanitize and auto-format the API URL so trailing slashes or missing '/api' never cause URL mismatch
+const formatApiUrl = (url) => {
+  if (!url) return 'http://localhost:5000/api'
+  let clean = url.trim().replace(/\/+$/, '') // strip trailing slashes
+  if (!clean.endsWith('/api')) {
+    clean = `${clean}/api`
+  }
+  return clean
+}
+
+const API_BASE_URL = formatApiUrl(import.meta.env.VITE_API_URL)
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -36,4 +46,3 @@ api.interceptors.response.use(
 )
 
 export default api
-

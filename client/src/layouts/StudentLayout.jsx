@@ -3,11 +3,15 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import {
   LayoutDashboard, User, Layers, ClipboardList, FileText,
-  TestTube2, BarChart2, Megaphone, LogOut, Menu, X, Bell, ChevronDown, GraduationCap,
+  TestTube2, BarChart2, Megaphone, LogOut, Menu, X, Bell,
+  ChevronDown, GraduationCap, Video, CreditCard, PlayCircle
 } from 'lucide-react'
 
 const navItems = [
   { label: 'Dashboard', path: '/student', icon: LayoutDashboard, end: true },
+  { label: 'My Learning (LMS)', path: '/student/learning', icon: PlayCircle },
+  { label: 'Course Assignments', path: '/student/assignments', icon: FileText },
+  { label: 'My Fees & Receipts', path: '/student/fees', icon: CreditCard },
   { label: 'My Profile', path: '/student/profile', icon: User },
   { label: 'My Batch', path: '/student/batch', icon: Layers },
   { label: 'Attendance', path: '/student/attendance', icon: ClipboardList },
@@ -21,7 +25,6 @@ export default function StudentLayout() {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const handleLogout = async () => { await logout(); navigate('/login') }
 
@@ -43,7 +46,7 @@ export default function StudentLayout() {
         <nav className="flex-1 overflow-y-auto px-3 py-2 space-y-0.5">
           {navItems.map(item => (
             <NavLink key={item.path} to={item.path} end={item.end} onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) => `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${isActive ? 'bg-green-50 text-green-700 font-semibold' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
+              className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isActive ? 'bg-green-50 text-green-700 font-bold shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
               <item.icon className="w-4 h-4 flex-shrink-0" />{item.label}
             </NavLink>
           ))}
@@ -60,28 +63,24 @@ export default function StudentLayout() {
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-4 shadow-sm">
-          <button className="lg:hidden p-2 rounded-lg hover:bg-gray-100" onClick={() => setSidebarOpen(true)}><Menu className="w-5 h-5 text-gray-600" /></button>
-          <div className="flex-1" />
-          <button className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-500"><Bell className="w-5 h-5" /></button>
-          <div className="relative">
-            <button onClick={() => setDropdownOpen(!dropdownOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-gray-100">
-              <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center text-green-700 font-semibold text-xs">{user?.name?.[0]?.toUpperCase() || 'S'}</div>
-              <span className="text-sm font-medium text-gray-700 hidden sm:block">{user?.name}</span>
-              <ChevronDown className="w-4 h-4 text-gray-400" />
+        <header className="h-16 bg-white border-b border-gray-100 flex items-center justify-between px-4 sm:px-6 z-10 flex-shrink-0">
+          <button className="lg:hidden p-2 text-gray-400 hover:text-gray-600" onClick={() => setSidebarOpen(true)}>
+            <Menu className="w-5 h-5" />
+          </button>
+          <div className="hidden sm:block">
+            <p className="text-sm font-semibold text-gray-800">Student Learning Portal • Excellup Coding Classes</p>
+          </div>
+          <div className="flex items-center gap-3 ml-auto">
+            <button onClick={handleLogout} className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors">
+              <LogOut className="w-4 h-4" /> Logout
             </button>
-            {dropdownOpen && (
-              <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-50">
-                <button onClick={() => { setDropdownOpen(false); navigate('/student/profile') }} className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50">My Profile</button>
-                <hr className="my-1 border-gray-100" />
-                <button onClick={handleLogout} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><LogOut className="w-4 h-4" />Logout</button>
-              </div>
-            )}
           </div>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6"><Outlet /></main>
+
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <Outlet />
+        </main>
       </div>
     </div>
   )
 }
-

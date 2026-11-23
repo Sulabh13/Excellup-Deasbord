@@ -13,7 +13,7 @@ import LoginPage from './pages/auth/LoginPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from './pages/auth/ResetPasswordPage';
 
-// Admin Pages
+// Admin Core Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 import StudentsPage from './pages/admin/StudentsPage';
 import TeachersPage from './pages/admin/TeachersPage';
@@ -29,6 +29,22 @@ import AnnouncementsPage from './pages/admin/AnnouncementsPage';
 import ReportsPage from './pages/admin/ReportsPage';
 import SettingsPage from './pages/admin/SettingsPage';
 
+// Admin LMS Pages
+import LmsDashboard from './pages/admin/lms/LmsDashboard';
+import AllCoursesPage from './pages/admin/lms/AllCoursesPage';
+import CourseDetailPage from './pages/admin/lms/CourseDetailPage';
+import CourseCategoriesPage from './pages/admin/lms/CourseCategoriesPage';
+import AssignmentsPage from './pages/admin/lms/AssignmentsPage';
+
+// Admin Finance Pages
+import FinanceDashboard from './pages/admin/finance/FinanceDashboard';
+import StudentFeesPage from './pages/admin/finance/StudentFeesPage';
+import PaymentCollectionPage from './pages/admin/finance/PaymentCollectionPage';
+import PendingFeesPage from './pages/admin/finance/PendingFeesPage';
+import FeeStructurePage from './pages/admin/finance/FeeStructurePage';
+import ExpensesPage from './pages/admin/finance/ExpensesPage';
+import FinancialReportsPage from './pages/admin/finance/FinancialReportsPage';
+
 // Teacher Pages
 import TeacherDashboard from './pages/teacher/TeacherDashboard';
 import TeacherAttendancePage from './pages/teacher/TeacherAttendancePage';
@@ -39,6 +55,7 @@ import StudentResultsPage from './pages/teacher/StudentResultsPage';
 import StudentListPage from './pages/teacher/StudentListPage';
 import TeacherProfilePage from './pages/teacher/TeacherProfilePage';
 import TeacherAnnouncementsPage from './pages/teacher/TeacherAnnouncementsPage';
+import TeacherOnlineCoursesPage from './pages/teacher/TeacherOnlineCoursesPage';
 
 // Student Pages
 import StudentDashboard from './pages/student/StudentDashboard';
@@ -51,6 +68,10 @@ import TestResultPage from './pages/student/TestResultPage';
 import StudentProfilePage from './pages/student/StudentProfilePage';
 import StudentBatchPage from './pages/student/StudentBatchPage';
 import StudentAnnouncementsPage from './pages/student/AnnouncementsPage';
+import StudentLearningPage from './pages/student/StudentLearningPage';
+import StudentCoursePlayerPage from './pages/student/StudentCoursePlayerPage';
+import StudentAssignmentsPage from './pages/student/StudentAssignmentsPage';
+import StudentFeesViewPage from './pages/student/StudentFeesViewPage';
 
 function App() {
   return (
@@ -104,6 +125,22 @@ function App() {
             <Route path="announcements" element={<AnnouncementsPage />} />
             <Route path="reports" element={<ReportsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+
+            {/* LMS Subroutes */}
+            <Route path="lms" element={<LmsDashboard />} />
+            <Route path="lms/courses" element={<AllCoursesPage />} />
+            <Route path="lms/courses/:id" element={<CourseDetailPage />} />
+            <Route path="lms/categories" element={<CourseCategoriesPage />} />
+            <Route path="lms/assignments" element={<AssignmentsPage />} />
+
+            {/* Finance Subroutes */}
+            <Route path="finance" element={<FinanceDashboard />} />
+            <Route path="finance/students" element={<StudentFeesPage />} />
+            <Route path="finance/collect" element={<PaymentCollectionPage />} />
+            <Route path="finance/pending" element={<PendingFeesPage />} />
+            <Route path="finance/structures" element={<FeeStructurePage />} />
+            <Route path="finance/expenses" element={<ExpensesPage />} />
+            <Route path="finance/reports" element={<FinancialReportsPage />} />
           </Route>
 
           {/* Teacher Routes */}
@@ -127,6 +164,10 @@ function App() {
             <Route path="results" element={<StudentResultsPage />} />
             <Route path="announcements" element={<TeacherAnnouncementsPage />} />
             <Route path="profile" element={<TeacherProfilePage />} />
+
+            {/* Teacher LMS */}
+            <Route path="lms/courses" element={<TeacherOnlineCoursesPage />} />
+            <Route path="lms/assignments" element={<AssignmentsPage />} />
           </Route>
 
           {/* Student Routes */}
@@ -148,6 +189,12 @@ function App() {
             <Route path="tests/:testId/attempt" element={<TestAttemptPage />} />
             <Route path="results/:attemptId" element={<TestResultPage />} />
             <Route path="announcements" element={<StudentAnnouncementsPage />} />
+
+            {/* Student LMS & Fees */}
+            <Route path="learning" element={<StudentLearningPage />} />
+            <Route path="learning/:id" element={<StudentCoursePlayerPage />} />
+            <Route path="assignments" element={<StudentAssignmentsPage />} />
+            <Route path="fees" element={<StudentFeesViewPage />} />
           </Route>
 
           {/* Catch-all */}

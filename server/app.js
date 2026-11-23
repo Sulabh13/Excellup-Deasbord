@@ -11,12 +11,48 @@ const app = express();
 app.use(helmet());
 
 // CORS
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  ...(process.env.CLIENT_URL
+    ? process.env.CLIENT_URL.split(',').map((s) => s.trim().replace(/\/+$/, ''))
+    : []),
+];
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, server-to-server)
+      if (!origin) return callback(null, true);
+
+      const cleanOrigin = origin.replace(/\/+$/, '');
+
+      // Check explicitly allowed origins
+      if (allowedOrigins.includes(cleanOrigin)) {
+        return callback(null, true);
+      }
+
+      // Allow any Vercel deployment preview / production domain (*.vercel.app)
+      try {
+        const url = new URL(origin);
+        if (url.hostname.endsWith('.vercel.app')) {
+          return callback(null, true);
+        }
+      } catch {}
+
+      // Allow all origins in non-production
+      if (process.env.NODE_ENV !== 'production') {
+        return callback(null, true);
+      }
+
+      return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
 
 // Body parser
 app.use(express.json({ limit: '10mb' }));
@@ -54,6 +90,8 @@ app.use('/api/test-attempts', require('./routes/testAttemptRoutes'));
 app.use('/api/announcements', require('./routes/announcementRoutes'));
 app.use('/api/dashboard', require('./routes/dashboardRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
+app.use('/api/lms', require('./routes/lmsRoutes'));
+app.use('/api/finance', require('./routes/financeRoutes'));
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ success: true, message: 'Excellup API running' }));

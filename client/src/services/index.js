@@ -135,3 +135,6 @@ export const reportService = {
   exportResultsCSV: (params) => api.get('/reports/export/results-csv', { params, responseType: 'blob' }),
 }
 
+export { lmsService } from './lmsService'
+export { financeService } from './financeService'
+

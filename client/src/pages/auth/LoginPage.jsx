@@ -33,7 +33,12 @@ export default function LoginPage() {
       const redirectMap = { admin: '/admin', teacher: '/teacher', student: '/student' }
       navigate(redirectMap[user.role] || '/login', { replace: true })
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Login failed. Check your credentials.')
+      const errMsg =
+        err.response?.data?.message ||
+        (err.code === 'ERR_NETWORK' || !err.response
+          ? 'Cannot connect to backend server. Make sure the server is running on port 5000.'
+          : 'Login failed. Check your credentials.')
+      toast.error(errMsg)
     } finally {
       setLoading(false)
     }

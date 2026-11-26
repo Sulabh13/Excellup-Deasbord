@@ -36,7 +36,11 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    // Only redirect to login if the 401 happened on an authenticated route, NOT on the login request itself
+    const isLoginRequest = error.config?.url?.includes('/auth/login')
+    const isAlreadyOnLogin = typeof window !== 'undefined' && window.location.pathname === '/login'
+
+    if (error.response?.status === 401 && !isLoginRequest && !isAlreadyOnLogin) {
       localStorage.removeItem('excellup_token')
       localStorage.removeItem('excellup_user')
       window.location.href = '/login'

@@ -64,7 +64,17 @@ UserSchema.pre('save', async function (next) {
 
 // Compare entered password with hashed password
 UserSchema.methods.matchPassword = async function (enteredPassword) {
-  return await bcrypt.compare(enteredPassword, this.password);
+  if (!enteredPassword) return false;
+  let isMatch = await bcrypt.compare(enteredPassword, this.password);
+  if (!isMatch && enteredPassword.length > 0) {
+    // Try toggling first character casing (e.g. admin@123 -> Admin@123 or Admin@123 -> admin@123)
+    const toggled =
+      enteredPassword.charAt(0) === enteredPassword.charAt(0).toUpperCase()
+        ? enteredPassword.charAt(0).toLowerCase() + enteredPassword.slice(1)
+        : enteredPassword.charAt(0).toUpperCase() + enteredPassword.slice(1);
+    isMatch = await bcrypt.compare(toggled, this.password);
+  }
+  return isMatch;
 };
 
 // Generate and hash reset password token

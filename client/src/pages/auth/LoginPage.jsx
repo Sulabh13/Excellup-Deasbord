@@ -33,11 +33,17 @@ export default function LoginPage() {
       const redirectMap = { admin: '/admin', teacher: '/teacher', student: '/student' }
       navigate(redirectMap[user.role] || '/login', { replace: true })
     } catch (err) {
-      const errMsg =
-        err.response?.data?.message ||
-        (err.code === 'ERR_NETWORK' || !err.response
-          ? 'Cannot connect to backend server. Make sure the server is running on port 5000.'
-          : 'Login failed. Check your credentials.')
+      const isVercel = typeof window !== 'undefined' && window.location.hostname.endsWith('vercel.app')
+      let errMsg = err.response?.data?.message
+      if (!errMsg) {
+        if (isVercel) {
+          errMsg = 'Cannot connect to backend. On Vercel, add VITE_API_URL in Project Settings -> Environment Variables pointing to your deployed backend URL.'
+        } else if (err.code === 'ERR_NETWORK' || !err.response) {
+          errMsg = 'Cannot connect to backend server. Make sure backend is running on port 5000 (cd server && npm run dev).'
+        } else {
+          errMsg = 'Login failed. Check your credentials.'
+        }
+      }
       toast.error(errMsg)
     } finally {
       setLoading(false)

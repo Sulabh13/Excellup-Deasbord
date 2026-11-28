@@ -1,7 +1,11 @@
 import axios from 'axios'
 
-// Sanitize and auto-format the API URL so trailing slashes or missing '/api' never cause URL mismatch
+// Sanitize and auto-format the API URL
 const formatApiUrl = (url) => {
+  // In local browser dev (localhost / 127.0.0.1), use relative '/api' to leverage Vite proxy
+  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
+    return '/api'
+  }
   if (!url) return 'http://localhost:5000/api'
   let clean = url.trim().replace(/\/+$/, '') // strip trailing slashes
   if (!clean.endsWith('/api')) {
